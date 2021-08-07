@@ -2,8 +2,9 @@
 #include<fstream>
 #include<vector>
 #include<stdlib.h>
+#include <math.h>
 
-//#define DEBUG
+//#define READFILEDEBUG
 
 using namespace std;
 
@@ -12,18 +13,31 @@ public:
     int idx;
     int width;
     int height;
-    int rotate;
-    HardBlock(int idx, int w, int h, int r){
+    int area;
+    int rotate;g
+    int x;
+    int y;
+    HardBlock(int idx, int w, int h, int a, int r){
         idx = idx;
         width = w;
         height = h;
+        area = w*h;
         rotate = r;
+    }
+    pair<int,int> getPin() {
+        if (rotate == 0)
+            return make_pair((x+width)/2,(y+height)/2);
+        else
+            return make_pair((x+height)/2,(y+width)/2);
     }
 };
 
 int hardblockNum;
 int terminalNum;
-
+int totalArea = 0;
+int Wfl;
+int Hfl;
+int deadRatio = 0.15;
 vector<HardBlock * > hardblocks;
 
 int main(int argc, char* argv[]){
@@ -36,7 +50,7 @@ int main(int argc, char* argv[]){
     file1 >> buff >> buff >> hardblockNum;
     file1 >> buff >> buff >> terminalNum;
 
-#ifdef DEBUG
+#ifdef READFILEDEBUG
     cout << hardblockNum << " " << terminalNum << endl;
 #endif
     int blockidx;
@@ -53,21 +67,27 @@ int main(int argc, char* argv[]){
             y[j] = stoi(buff.substr(0, buff.size()-1));
         }
               // read hardblock name
-#ifdef DEBUG
+#ifdef READFILEDEBUG
         cout << blockidx << endl;
         for(int j=0; j<4; j++){
             cout << x[j] << " " << y[j] << endl;
         }
 #endif
         HardBlock * hardblock1 = new HardBlock(blockidx, x[2]-x[0], y[2]-y[0], 0);
-        HardBlock * hardblock2 = new HardBlock(blockidx, y[2]-y[0], x[2]-x[0], 1);
+        totalarea += hardblock1->area;
         hardblocks.push_back(hardblock1);
-        hardblocks.push_back(hardblock2);
-        //cout << blockidx << " | " << x[2]-x[0] << " " << y[2]-y[0] << endl;
     }
+    Wfl = Hfl = (int) floor(sqrt(totalarea*(1+deadRatio))) ;
 
-    file2.open(argv[2]);    // read nets file
+#ifdef READFILEDEBUG    
+    cout << "totalarea " << totalArea << endl;
+    cout << "deadRatio " << deadRatio << endl;
+    cout << "Wfl " << Wfl << endl;
+#endif
+    
+    
+    file2.open(argv[2]);    // read pins file
 
-    file3.open(argv[3]);    // read pins location file
+    file3.open(argv[3]);    // read nets location file
     return 0;
 }
