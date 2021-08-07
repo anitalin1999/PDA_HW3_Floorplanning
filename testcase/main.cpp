@@ -3,8 +3,13 @@
 #include<vector>
 #include<stdlib.h>
 #include <math.h>
+#include <climits>
 
-//#define READFILEDEBUG
+// #define InitBlockBUG
+// #define READFILEDEBUG
+
+#define H INT_MAX
+#define V INT_MIN
 
 using namespace std;
 
@@ -14,11 +19,11 @@ public:
     int width;
     int height;
     int area;
-    int rotate;g
+    int rotate;
     int x;
     int y;
-    HardBlock(int idx, int w, int h, int a, int r){
-        idx = idx;
+    HardBlock(int index, int w, int h, int r){
+        idx = index;
         width = w;
         height = h;
         area = w*h;
@@ -40,9 +45,57 @@ int Hfl;
 int deadRatio = 0.15;
 vector<HardBlock * > hardblocks;
 
+void showNPE(const vector<int> &npe){
+    for(int i=0; i<npe.size(); i++){
+        if (npe[i] == V){
+            cout << "V";
+        }
+        else if (npe[i] == H){
+            cout << "H";
+        }
+        else{
+            cout << npe[i];
+        }
+    }
+	cout << endl;
+}
+
+//we put block left to right, and if outline happen, we put block next level, and so on. 
+//like 12V34VH56VH78VH
+void npeInitial(vector<int> &npe) {
+	npe.clear();
+	int row_width = 0, x_cnt = 0, y_cnt = 0, cut_cnt = 0;
+	for(int i = 0; i < hardblockNum; i ++) {
+		row_width += hardblocks[i]->width;
+		if(row_width >= Wfl) {
+			y_cnt++;
+			if(y_cnt >= 2) {
+				npe.push_back(H);
+				cut_cnt++;
+				y_cnt = 1;
+			}
+			row_width = hardblocks[i]->width;
+			x_cnt = 0;
+		}
+		npe.push_back(hardblocks[i]->idx);
+		x_cnt++;
+		if(x_cnt >= 2) {
+			npe.push_back(V);
+			cut_cnt++;
+			x_cnt = 1;
+		}
+	}
+	while(cut_cnt < hardblockNum - 1) {
+		npe.push_back(H);
+		cut_cnt++;
+	}
+#ifdef InitBlockBUG   
+	showNPE(npe);
+#endif
+}
+
 int main(int argc, char* argv[]){
     fstream file1, file2, file3;
-    
     // * read hardblocks file 
     file1.open(argv[1]);    
     string buff;
@@ -74,11 +127,12 @@ int main(int argc, char* argv[]){
         }
 #endif
         HardBlock * hardblock1 = new HardBlock(blockidx, x[2]-x[0], y[2]-y[0], 0);
-        totalarea += hardblock1->area;
+        totalArea += hardblock1->area;
         hardblocks.push_back(hardblock1);
     }
-    Wfl = Hfl = (int) floor(sqrt(totalarea*(1+deadRatio))) ;
-
+    Wfl = Hfl = (int) floor(sqrt(totalArea*(1+deadRatio))) ;
+    vector<int> npe;    
+    npeInitial(npe);
 #ifdef READFILEDEBUG    
     cout << "totalarea " << totalArea << endl;
     cout << "deadRatio " << deadRatio << endl;
