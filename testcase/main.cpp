@@ -1,10 +1,12 @@
 #include<iostream>
 #include<fstream>
 #include<vector>
+#include <stack>
 #include<stdlib.h>
 #include <math.h>
 #include <climits>
 
+// #define BulidTreeBUG
 // #define InitBlockBUG
 // #define READFILEDEBUG
 
@@ -59,6 +61,22 @@ public:
 
 };
 
+class Node
+{
+public:
+    int idx;
+    vector<vector<int> > record;//weight,height,lChoice,rChoice;
+    Node *lNode, *rNode, *parent;
+    Node(int index)
+    {
+        idx = index;
+        lNode = NULL;
+        rNode = NULL;
+        parent = NULL;
+    }
+};
+
+
 
 int hardblockNum;
 int terminalNum;
@@ -69,6 +87,7 @@ double deadRatio = 0.15;
 vector<HardBlock * > hardblocks;
 vector<Pin *> pins;
 vector<Net *> nets;
+Node* treeRoot;
 
 void showNPE(const vector<int> &npe){
     for(int i=0; i<npe.size(); i++){
@@ -119,6 +138,54 @@ void npeInitial(vector<int> &npe) {
 #endif
 }
 
+// postorder traversal
+void showTree(Node* root)
+{
+    if (!root) return;
+    showTree(root->lNode);
+    showTree(root->rNode);
+    if (root->idx == V){
+        cout << "V";
+    }
+    else if (root->idx == H){
+        cout << "H";
+    }
+    else{
+        cout << root->idx;
+    }   
+}
+
+void npeBuildTree(vector<int> &npe)
+{
+	stack<Node*> s;
+	Node *lchild, *rchild;
+	for(int i = 0; i < npe.size(); i++) {
+		if(npe[i] != V && npe[i] != H){
+			s.push(new Node(npe[i]));
+        }
+		else {
+			rchild = s.top();
+			s.pop();
+			lchild = s.top();
+			s.pop();
+			s.push(new Node(npe[i]));
+			rchild -> parent = s.top();
+			lchild -> parent = s.top();
+			s.top() -> rNode = rchild;
+			s.top() -> lNode = lchild;
+		}        
+	}    
+    treeRoot = s.top();
+#ifdef BulidTreeBUG
+    s.pop();
+    if (!s.empty()){
+        cout << "stack is not empty.\n"; 
+    }
+	showTree(treeRoot);
+    cout << endl;
+#endif    
+}
+
 int main(int argc, char* argv[]){
     fstream file1, file2, file3;
 
@@ -162,6 +229,7 @@ int main(int argc, char* argv[]){
 
     vector<int> npe;    
     npeInitial(npe);
+    npeBuildTree(npe);
 
 #ifdef READFILEDEBUG    
     cout << "totalarea " << totalArea << endl;
