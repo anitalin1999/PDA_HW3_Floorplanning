@@ -5,7 +5,9 @@
 #include<stdlib.h>
 #include <math.h>
 #include <climits>
+#include <algorithm>
 
+#define BulidRecordBUG
 // #define BulidTreeBUG
 // #define InitBlockBUG
 // #define READFILEDEBUG
@@ -65,7 +67,7 @@ class Node
 {
 public:
     int idx;
-    vector<vector<int> > record;//weight,height,lChoice,rChoice;
+    vector<vector<int> > record;//width,height,lChoice,rChoice;
     Node *lNode, *rNode, *parent;
     Node(int index)
     {
@@ -146,13 +148,113 @@ void showTree(Node* root)
     showTree(root->rNode);
     if (root->idx == V){
         cout << "V";
+#ifdef BulidRecordBUG
+        cout << endl;
+        for (int i = 0; i < root->record.size(); i++)
+        {
+            cout << "(" << root->record[i][0] << "," << root->record[i][1] << ") ";
+        }
+        cout << endl;
+#endif        
     }
     else if (root->idx == H){
         cout << "H";
+#ifdef BulidRecordBUG
+        cout << endl;
+        for (int i = 0; i < root->record.size(); i++)
+        {
+            cout << "(" << root->record[i][0] << "," << root->record[i][1] << ") ";
+        }
+        cout << endl;
+#endif                
     }
     else{
         cout << root->idx;
+#ifdef BulidRecordBUG
+        cout << endl;
+        for (int i = 0; i < root->record.size(); i++)
+        {
+            cout << "(" << root->record[i][0] << "," << root->record[i][1] << ") ";
+        }
+        cout << endl;
+#endif                
     }   
+}
+
+//high to low
+bool cmp(const vector<int> &a, const vector<int> &b) {
+	return a[1] > b[1];
+}
+
+//buttom-up
+void bulidRecord(Node* node)
+{
+	node -> record.clear();    
+    if (node->idx == V){
+ 	    Node *lchild = node -> lNode, *rchild = node -> rNode;
+		int l = 0, r = 0;
+		while(l < lchild -> record.size() && r < rchild -> record.size()) {
+			vector<int> row;
+			row.push_back(lchild -> record[l][0] + rchild -> record[r][0]);
+			row.push_back(max(lchild -> record[l][1], rchild -> record[r][1]));
+			row.push_back(l);
+			row.push_back(r);
+			node -> record.push_back(row);
+			// choose block-shape merge i++ j++
+			if(lchild -> record[l][1] > rchild -> record[r][1])
+				l++;
+			else if(lchild -> record[l][1] < rchild -> record[r][1])
+				r++;
+			else {
+				l++;
+				r++;
+			}
+		}
+        sort(node -> record.begin(), node -> record.end(), cmp);                
+    }else if (node->idx == H){
+ 	    Node *lchild = node -> lNode, *rchild = node -> rNode;        
+		int l = lchild -> record.size() - 1, r = rchild -> record.size() - 1;
+		while(l >= 0 && r >= 0) {
+			vector<int> row;
+			row.push_back(max(lchild -> record[l][0], rchild -> record[r][0]));
+			row.push_back(lchild -> record[l][1] + rchild -> record[r][1]);
+			row.push_back(l);
+			row.push_back(r);
+			node -> record.push_back(row);
+			if(lchild -> record[l][0] > rchild -> record[r][0])
+				l--;
+			else if(lchild -> record[l][0] < rchild -> record[r][0])
+				r--;
+			else {
+				l--;
+				r--;
+			}
+		}
+    }else{
+        int height = hardblocks[node->idx]->height, width = hardblocks[node->idx]->width;
+        vector<int> row1,row2;
+        if (height > width){         
+            row1.push_back(width);
+            row1.push_back(height);
+            row2.push_back(height);
+            row2.push_back(width);
+            node -> record.push_back(row1);
+            node -> record.push_back(row2);
+        }else if (height < width){
+            row1.push_back(width);
+            row1.push_back(height);
+            row2.push_back(height);
+            row2.push_back(width);
+            node -> record.push_back(row2);
+            node -> record.push_back(row1);            
+        }else{
+            row1.push_back(width);
+            row1.push_back(height);
+            node -> record.push_back(row1);                     
+        }
+    }    
+    
+    
 }
 
 void npeBuildTree(vector<int> &npe)
@@ -162,6 +264,7 @@ void npeBuildTree(vector<int> &npe)
 	for(int i = 0; i < npe.size(); i++) {
 		if(npe[i] != V && npe[i] != H){
 			s.push(new Node(npe[i]));
+            bulidRecord(s.top());
         }
 		else {
 			rchild = s.top();
@@ -173,10 +276,11 @@ void npeBuildTree(vector<int> &npe)
 			lchild -> parent = s.top();
 			s.top() -> rNode = rchild;
 			s.top() -> lNode = lchild;
+            bulidRecord(s.top());
 		}        
 	}    
     treeRoot = s.top();
-#ifdef BulidTreeBUG
+#if defined BulidTreeBUG || defined BulidRecordBUG
     s.pop();
     if (!s.empty()){
         cout << "stack is not empty.\n"; 
