@@ -8,7 +8,7 @@
 #include <algorithm>
 #include <iomanip>
 
-// #define blockAllocateBUG
+#define blockAllocateBUG
 // #define AreaCostBUG
 // #define BulidRecordBUG
 // #define BulidTreeBUG
@@ -376,6 +376,41 @@ int npeAreaCost(Node* node) {
 	return minArea;
 }
 
+void drawFloorplan(void ){
+    ofstream floorplanFile;
+    floorplanFile.open ("../draw/draw.floorplan");
+    /*
+    int outlineW = 0;
+    int outlineH = 0;
+    for(int i=0; i<hardblocks.size(); i++){
+        if(hardblocks[i]->rotate == 0){
+            if(hardblocks[i]->x + hardblocks[i]->width > outlineW) outlineW = hardblocks[i]->x + hardblocks[i]->width;
+            if(hardblocks[i]->y + hardblocks[i]->height > outlineH) outlineH = hardblocks[i]->y + hardblocks[i]->height;
+        }
+        else{
+            if(hardblocks[i]->x + hardblocks[i]->height > outlineW) outlineW = hardblocks[i]->x + hardblocks[i]->height;
+            if(hardblocks[i]->y + hardblocks[i]->width > outlineH) outlineH = hardblocks[i]->y + hardblocks[i]->width;
+        }
+    }
+    floorplanFile << "0\t" << "0\t" << outlineW << "\t" << outlineH << endl;
+    */
+    for(int i=0; i<hardblocks.size(); i++){
+        floorplanFile << hardblocks[i]->x << "\t";
+        floorplanFile << hardblocks[i]->y << "\t";
+        if(hardblocks[i]->rotate == 0){
+            floorplanFile << hardblocks[i]->width << "\t";
+            floorplanFile << hardblocks[i]->height << endl;
+        }
+        else{
+            floorplanFile << hardblocks[i]->height << "\t";
+            floorplanFile << hardblocks[i]->width << endl;
+        }
+        
+        
+    }
+    floorplanFile.close();
+}
+
 int main(int argc, char* argv[]){
     fstream file1, file2, file3;
 
@@ -430,6 +465,9 @@ int main(int argc, char* argv[]){
     cout << "pin x" << setw(8) << "pin y" << endl; 
 #endif        
     blockAllocate(rootChoice,treeRoot);
+    
+    /* Create "draw floorplan file" named draw.floorplan */
+    drawFloorplan();
 
 #ifdef READFILEDEBUG    
     cout << "totalarea " << totalArea << endl;
