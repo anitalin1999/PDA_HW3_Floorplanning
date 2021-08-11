@@ -6,8 +6,11 @@
 #include <math.h>
 #include <climits>
 #include <algorithm>
+#include <iomanip>
 
-#define BulidRecordBUG
+// #define blockAllocateBUG
+// #define AreaCostBUG
+// #define BulidRecordBUG
 // #define BulidTreeBUG
 // #define InitBlockBUG
 // #define READFILEDEBUG
@@ -26,18 +29,14 @@ public:
     int rotate;
     int x;
     int y;
+    int pinX;
+    int pinY;
     HardBlock(int index, int w, int h, int r){
         idx = index;
         width = w;
         height = h;
         area = w*h;
         rotate = r;
-    }
-    pair<int,int> getPin() {
-        if (rotate == 0)
-            return make_pair((x+width)/2,(y+height)/2);
-        else
-            return make_pair((x+height)/2,(y+width)/2);
     }
 };
 
@@ -67,6 +66,7 @@ class Node
 {
 public:
     int idx;
+    int x,y;//leftcorner for blocks like 34V56VH and so no
     vector<vector<int> > record;//width,height,lChoice,rChoice;
     Node *lNode, *rNode, *parent;
     Node(int index)
@@ -85,6 +85,7 @@ int terminalNum;
 int totalArea = 0;
 int Wfl;
 int Hfl;
+int rootChoice;
 double deadRatio = 0.15;
 vector<HardBlock * > hardblocks;
 vector<Pin *> pins;
@@ -147,7 +148,7 @@ void showTree(Node* root)
     showTree(root->lNode);
     showTree(root->rNode);
     if (root->idx == V){
-        cout << "V";
+        cout << "V ";
 #ifdef BulidRecordBUG
         cout << endl;
         for (int i = 0; i < root->record.size(); i++)
@@ -158,7 +159,7 @@ void showTree(Node* root)
 #endif        
     }
     else if (root->idx == H){
-        cout << "H";
+        cout << "H ";
 #ifdef BulidRecordBUG
         cout << endl;
         for (int i = 0; i < root->record.size(); i++)
@@ -169,7 +170,7 @@ void showTree(Node* root)
 #endif                
     }
     else{
-        cout << root->idx;
+        cout << root->idx << " ";
 #ifdef BulidRecordBUG
         cout << endl;
         for (int i = 0; i < root->record.size(); i++)
@@ -280,6 +281,8 @@ void npeBuildTree(vector<int> &npe)
 		}        
 	}    
     treeRoot = s.top();
+    treeRoot->x = 0;
+    treeRoot->y = 0;
 #if defined BulidTreeBUG || defined BulidRecordBUG
     s.pop();
     if (!s.empty()){
@@ -288,6 +291,89 @@ void npeBuildTree(vector<int> &npe)
 	showTree(treeRoot);
     cout << endl;
 #endif    
+}
+
+void blockAllocate(int choice, Node* node) {           
+    if (node != NULL)
+    {
+        if (node->idx == V) {
+            int lNodeChoice = node->record[choice][2];
+            int rNodeChoice = node->record[choice][3];
+            node->lNode->x = node->x;
+            node->lNode->y = node->y;
+            node->rNode->x = node->x + node->lNode->record[lNodeChoice][0];
+            node->rNode->y = node->y;
+            blockAllocate(lNodeChoice,node->lNode);
+            blockAllocate(rNodeChoice,node->rNode);
+        } else if (node->idx == H) {      
+            int lNodeChoice = node->record[choice][2];
+            int rNodeChoice = node->record[choice][3];            
+            node->lNode->x = node->x;
+            node->lNode->y = node->y;
+            node->rNode->x = node->x; 
+            node->rNode->y = node->y + node->lNode->record[lNodeChoice][1];
+            blockAllocate(lNodeChoice,node->lNode);
+            blockAllocate(rNodeChoice,node->rNode);
+        } else {
+            int width = hardblocks[node->idx]->width;
+            int height = hardblocks[node->idx]->height;
+            if(width == node->record[choice][0]){
+                hardblocks[node->idx]->rotate = 0;
+                hardblocks[node->idx]->pinX = (node->x+width)/2;
+                hardblocks[node->idx]->pinY = (node->y+height)/2;
+            }else{
+                hardblocks[node->idx]->rotate = 1;
+                hardblocks[node->idx]->pinX = (node->x+height)/2;
+                hardblocks[node->idx]->pinY = (node->y+width)/2;
+            }
+            hardblocks[node->idx]->x = node->x;
+            hardblocks[node->idx]->y = node->y;
+#ifdef blockAllocateBUG
+            cout << setw(8) << node->idx;
+            cout << setw(8) << hardblocks[node->idx]->x;
+            cout << setw(8) << hardblocks[node->idx]->y;
+            cout << setw(8) << hardblocks[node->idx]->width;
+            cout << setw(8) << hardblocks[node->idx]->height;                   
+            cout << setw(8) << hardblocks[node->idx]->rotate;    
+            cout << setw(8) << hardblocks[node->idx]->pinX;
+            cout << setw(8) << hardblocks[node->idx]->pinY;
+            cout << endl;
+#endif            
+        }
+    }
+}
+
+int npeAreaCost(Node* node) {
+	int area, minArea = INT_MAX;
+    int width,height;
+#ifdef AreaCostBUG
+    cout << "Hfl " << Hfl << endl;
+    cout << "Wfl " << Wfl << endl;
+#endif
+	for(int i = 0; i < node -> record.size(); i++) {        
+        width = node -> record[i][0];
+        height = node -> record[i][1];
+		if(width > Wfl && height > Hfl)
+			area = width * height - Wfl * Hfl;
+		else if(width > Wfl && height <= Hfl)
+			area = (width - Wfl) * height;
+		else if(width <= Wfl && height > Hfl)
+			area = width * (height - Hfl);
+		else
+			area = 0;
+#ifdef AreaCostBUG
+        cout << "width " << width << " height " << height << " outlineArea " << area << endl;
+#endif            
+		if(minArea > area) {
+			minArea = area;            
+			rootChoice = i;
+		}
+	}
+#ifdef AreaCostBUG
+    cout << "minArea " << minArea << endl;
+    cout << "choice " << rootChoice << endl;
+#endif
+	return minArea;
 }
 
 int main(int argc, char* argv[]){
@@ -334,6 +420,16 @@ int main(int argc, char* argv[]){
     vector<int> npe;    
     npeInitial(npe);
     npeBuildTree(npe);
+    npeAreaCost(treeRoot);    
+    showTree(treeRoot);
+#ifdef blockAllocateBUG
+    cout << "blockAllocate" << endl;
+    cout << setw(8); 
+    cout << "index" << setw(8) << "x" << setw(8) << "y" << setw(8);
+    cout << "width" << setw(8) << "height" << setw(8) << "rotate" << setw(8);
+    cout << "pin x" << setw(8) << "pin y" << endl; 
+#endif        
+    blockAllocate(rootChoice,treeRoot);
 
 #ifdef READFILEDEBUG    
     cout << "totalarea " << totalArea << endl;
