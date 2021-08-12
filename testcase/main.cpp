@@ -8,12 +8,9 @@
 #include <algorithm>
 #include <iomanip>
 
-<<<<<<< HEAD
-#define blockAllocateBUG
-=======
-#define WireLengthBUG
+#define PerturbBUG
+// #define WireLengthBUG
 // #define blockAllocateBUG
->>>>>>> wireLength
 // #define AreaCostBUG
 // #define BulidRecordBUG
 // #define BulidTreeBUG
@@ -71,8 +68,8 @@ class Node
 {
 public:
     int idx;
-    int x,y;//leftcorner for blocks like 34V56VH and so no
-    vector<vector<int> > record;//width,height,lChoice,rChoice;
+    int x,y;                                //leftcorner for blocks like 34V56VH and so no
+    vector<vector<int> > record;            //width,height,lChoice,rChoice;
     Node *lNode, *rNode, *parent;
     Node(int index)
     {
@@ -381,7 +378,7 @@ int npeAreaCost(Node* node) {
 	return minArea;
 }
 
-void drawFloorplan(void ){
+void drawFloorplan(){
     ofstream floorplanFile;
     floorplanFile.open ("../draw/draw.floorplan");
     /*
@@ -457,6 +454,60 @@ int npeWireLength() {
 	return wl;
 }
 
+void npePerturb(vector<int> &npe, int m){
+    // Swap two operands
+    if(m == 0){
+        int operandsArray[npe.size()];
+        int operandsCnt = 0;
+        int b1, b2;
+        for(int i=0; i<npe.size(); i++){
+            if(npe[i] != V && npe[i]!= H){
+                operandsArray[operandsCnt] = i;         // npe[operansArray[operandsCnt]] has a block
+                operandsCnt ++;
+            }   
+        }
+        b1 = rand() % operandsCnt;
+        b2 = rand() % operandsCnt;
+        while(b1 == b2) b2 = rand() % operandsCnt;
+        // Swap
+        int empty = npe[operandsArray[b1]];
+        npe[operandsArray[b1]] = npe[operandsArray[b2]];
+        npe[operandsArray[b2]] = empty;
+    }
+    // complement a chain of operators
+    else if(m == 1){
+        int chainArray[npe.size()];
+        int chainCnt = 0;
+        int flag = 0;
+        int c;
+        for(int i=0; i<npe.size(); i++){
+            if((npe[i] == H || npe[i] == V) && flag == 0){
+                flag = 1;
+                chainArray[chainCnt] = i;               // noe[chainArray[chainCnt]] has a chain head
+                chainCnt ++;
+            }
+            else if((npe[i] != H || npe[i] != V) && flag == 1){
+                flag = 0;
+            }
+        }
+        c = rand() % chainCnt;
+#ifdef PerturbBUG
+        cout << "choose " << c << "th chain to complement." << endl;
+#endif
+        int chainIndex = chainArray[c];
+        while(npe[chainIndex] == H || npe[chainIndex] == V){
+            if(npe[chainIndex] == H) npe[chainIndex] = V;
+            else npe[chainIndex] = H;
+            chainIndex ++;
+        }
+
+    }
+    // Swap operand and opertor (check balloting and skewed property)
+    else{
+
+    }
+}
+
 int main(int argc, char* argv[]){
     fstream file1, file2, file3;
 
@@ -500,6 +551,11 @@ int main(int argc, char* argv[]){
 
     vector<int> npe;    
     npeInitial(npe);
+
+    showNPE(npe);
+    npePerturb(npe, 1);
+    showNPE(npe);
+
     npeBuildTree(npe);
     npeAreaCost(treeRoot);    
 #ifdef blockAllocateBUG
