@@ -10,7 +10,7 @@ String line;
 
 void setup() {
   size(600, 600); //picture size
-  background(255);  
+  background(255);
   reader = createReader("draw.floorplan");
 }
 
@@ -31,13 +31,14 @@ void draw() {
     float w = float(pieces[2]);
     float h = float(pieces[3]);
 
-    fill(200);
+    fill(192,192,192,120);
     rect(x,y,w,h);
     
     String s = '('+pieces[0]+','+pieces[1]+')';    
     fill(0);
     textSize(8);
-    text(s,x+20,y+20);
+    textAlign(CENTER, CENTER);
+    text(s,x+w/2,y+h/2);
    
     
   }   
