@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <iomanip>
 
+#define WireLengthBUG
 // #define blockAllocateBUG
 // #define AreaCostBUG
 // #define BulidRecordBUG
@@ -376,6 +377,47 @@ int npeAreaCost(Node* node) {
 	return minArea;
 }
 
+int npeWireLength() {
+	int wl = 0;
+	for(int i = 0; i < nets.size(); i++) {
+		int x_min = INT_MAX, x_max = INT_MIN, y_min = INT_MAX, y_max = INT_MIN;
+		for(int j = 0; j < nets[i]->degree; j++) {
+            int type = nets[i]->connect[j].first, index = nets[i]->connect[j].second;
+#ifdef WireLengthBUG            
+            cout << setw(8) << index;
+#endif            
+            if (type == 0) {
+#ifdef WireLengthBUG                
+                cout << setw(8) << hardblocks[index]->idx;
+                cout << setw(8) << hardblocks[index]->pinX;
+                cout << setw(8) << hardblocks[index]->pinY << endl;
+#endif                
+			    x_min = min(x_min, hardblocks[index]->pinX);
+			    x_max = max(x_max, hardblocks[index]->pinX);
+			    y_min = min(y_min, hardblocks[index]->pinY);
+			    y_max = max(y_max, hardblocks[index]->pinY);
+            }
+            else {
+#ifdef WireLengthBUG                
+                cout << setw(8) << pins[index - 1]->idx;
+                cout << setw(8) << pins[index - 1]->x;
+                cout << setw(8) << pins[index - 1]->y << endl;
+#endif                
+			    x_min = min(x_min, pins[index - 1]->x);
+			    x_max = max(x_max, pins[index - 1]->x);
+			    y_min = min(y_min, pins[index - 1]->y);
+			    y_max = max(y_max, pins[index - 1]->y);   
+            }
+		}
+#ifdef WireLengthBUG
+        cout << "x_max " << x_max << " x_min " << x_min;
+        cout << " y_max " << y_max << " y_min " << y_min << endl;
+#endif        
+		wl += (x_max - x_min) + (y_max - y_min);
+	}
+	return wl;
+}
+
 int main(int argc, char* argv[]){
     fstream file1, file2, file3;
 
@@ -421,14 +463,14 @@ int main(int argc, char* argv[]){
     npeInitial(npe);
     npeBuildTree(npe);
     npeAreaCost(treeRoot);    
-    showTree(treeRoot);
 #ifdef blockAllocateBUG
+    showTree(treeRoot);
     cout << "blockAllocate" << endl;
     cout << setw(8); 
     cout << "index" << setw(8) << "x" << setw(8) << "y" << setw(8);
     cout << "width" << setw(8) << "height" << setw(8) << "rotate" << setw(8);
     cout << "pin x" << setw(8) << "pin y" << endl; 
-#endif        
+#endif
     blockAllocate(rootChoice,treeRoot);
 
 #ifdef READFILEDEBUG    
@@ -483,6 +525,15 @@ int main(int argc, char* argv[]){
         nets.push_back(nownet);
     }   
 
+#ifdef WireLengthBUG
+    cout << "WireLength" << endl; 
+//R_index for index record in net 
+//T_index for index record in pin or hardblock
+//to check index is correct
+    cout << setw(8) << "R_index" << setw(8) << "T_index";
+    cout << setw(8) << "pin x" << setw(8) << "pin y" << endl; 
+#endif
+    npeWireLength();
     
 
     return 0;
