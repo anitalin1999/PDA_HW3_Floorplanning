@@ -454,6 +454,17 @@ int npeWireLength() {
 	return wl;
 }
 
+bool npeBallot(vector<int> &npe, int p){
+
+    return true;
+}
+
+bool npeSkew(vector<int> &npe, int p){
+    
+    return true;
+}
+
+
 void npePerturb(vector<int> &npe, int m){
     // Swap two operands
     if(m == 0){
@@ -502,9 +513,23 @@ void npePerturb(vector<int> &npe, int m){
         }
 
     }
-    // Swap operand and opertor (check balloting and skewed property)
+    // Swap two ADJACENT operand and opertor (check balloting and skewed property)
     else{
-
+        int adjArray[npe.size()];
+        int adjCnt = 0;
+        for(int i=0; i<npe.size()-1; i++){
+            if( ((npe[i] != H || npe[i] != V) && (npe[i+1] == H || npe[i+1] == V)) || ((npe[i] == H || npe[i] == V) && (npe[i+1] != H || npe[i+1] != V)) ){
+                adjArray[adjCnt] = i;
+                adjCnt++; 
+            }
+        }
+        int adjIdx = rand() % adjCnt;
+        while(!npeBallot(npe, adjArray[adjIdx]) && npeSkew(npe, adjArray[adjIdx]) ){
+            adjIdx = rand() % adjCnt;
+        }
+        int empty = npe[adjArray[adjIdx]];
+        npe[adjArray[adjIdx]]= npe[adjArray[adjIdx+1]];
+        npe[adjArray[adjIdx+1]] = empty;
     }
 }
 
@@ -553,7 +578,7 @@ int main(int argc, char* argv[]){
     npeInitial(npe);
 
     showNPE(npe);
-    npePerturb(npe, 1);
+    npePerturb(npe, 2);
     showNPE(npe);
 
     npeBuildTree(npe);
