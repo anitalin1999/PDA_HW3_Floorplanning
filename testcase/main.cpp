@@ -455,13 +455,43 @@ int npeWireLength() {
 }
 
 bool npeBallot(vector<int> &npe, int p){
-
-    return true;
+    // Check if the number of operators < number od operands.
+    if(npe[p] == H || npe[p] == V){
+        return true;
+    }
+    else{
+        int operandCnt = 0;
+        for(int i=0; i<=p+1; i++){
+            if(npe[i] == H || npe[i] == V){
+                operandCnt ++;
+            }
+            
+        }
+        if(operandCnt * 2 < p + 1) return true;
+        else return false;
+    }
 }
 
 bool npeSkew(vector<int> &npe, int p){
-    
-    return true;
+    if(p > 0){
+        if(npe[p-1] == H && npe[p+1] == H){
+            return false;
+        }
+        else if(npe[p-1] == V && npe[p+1] == V){
+            return false;
+        }
+        else return true;
+    }
+    else if(p < npe.size()-1){
+        if(npe[p] == H && npe[p+2] == H){
+            return false;
+        }
+        else if(npe[p] == V && npe[p+2] == V){
+            return false;
+        }
+        else return true;
+    }
+    else return false;
 }
 
 
@@ -524,7 +554,7 @@ void npePerturb(vector<int> &npe, int m){
             }
         }
         int adjIdx = rand() % adjCnt;
-        while(!npeBallot(npe, adjArray[adjIdx]) && npeSkew(npe, adjArray[adjIdx]) ){
+        while(!npeBallot(npe, adjArray[adjIdx]) && !npeSkew(npe, adjArray[adjIdx]) ){
             adjIdx = rand() % adjCnt;
         }
         int empty = npe[adjArray[adjIdx]];
