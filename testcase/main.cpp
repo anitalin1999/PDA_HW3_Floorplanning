@@ -473,25 +473,15 @@ bool npeBallot(vector<int> &npe, int p){
 }
 
 bool npeSkew(vector<int> &npe, int p){
-    if(p > 0){
-        if(npe[p-1] == H && npe[p+1] == H){
-            return false;
-        }
-        else if(npe[p-1] == V && npe[p+1] == V){
-            return false;
-        }
+    if( (npe[p+1] == H || npe[p+1] == V) && p > 0){
+        if(npe[p-1] == npe[p+1]) return false;
         else return true;
     }
-    else if(p < npe.size()-1){
-        if(npe[p] == H && npe[p+2] == H){
-            return false;
-        }
-        else if(npe[p] == V && npe[p+2] == V){
-            return false;
-        }
+    else if( (npe[p] == H || npe[p+1] == V) && p < npe.size()-1){
+        if(npe[p+2] == npe[p]) return false;
         else return true;
     }
-    else return false;
+    else return true;
 }
 
 
