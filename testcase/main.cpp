@@ -8,7 +8,9 @@
 #include <algorithm>
 #include <iomanip>
 
-#define PerturbBUG
+#define SABUG
+#define time
+// #define PerturbBUG
 // #define WireLengthBUG
 // #define blockAllocateBUG
 // #define AreaCostBUG
@@ -92,7 +94,7 @@ double deadRatio = 0.15;
 vector<HardBlock * > hardblocks;
 vector<Pin *> pins;
 vector<Net *> nets;
-Node* treeRoot;
+vector<int> bestNpe;
 
 void showNPE(const vector<int> &npe){
     for(int i=0; i<npe.size(); i++){
@@ -260,8 +262,9 @@ void bulidRecord(Node* node)
     
 }
 
-void npeBuildTree(vector<int> &npe)
+Node* npeBuildTree(vector<int> &npe)
 {
+    Node* treeRoot;
 	stack<Node*> s;
 	Node *lchild, *rchild;
 	for(int i = 0; i < npe.size(); i++) {
@@ -293,6 +296,7 @@ void npeBuildTree(vector<int> &npe)
 	showTree(treeRoot);
     cout << endl;
 #endif    
+    return treeRoot;
 }
 
 void blockAllocate(int choice, Node* node) {           
@@ -473,11 +477,14 @@ bool npeBallot(vector<int> &npe, int p){
 }
 
 bool npeSkew(vector<int> &npe, int p){
-    if( (npe[p+1] == H || npe[p+1] == V) && p > 0){
+#ifdef PerturbBUG
+    if(p <= 0 || p >= npe.size()-1) cout << "npe illegal." << endl;
+#endif
+    if(npe[p+1] == H || npe[p+1] == V){
         if(npe[p-1] == npe[p+1]) return false;
         else return true;
     }
-    else if( (npe[p] == H || npe[p+1] == V) && p < npe.size()-1){
+    else if(npe[p] == H || npe[p] == V){
         if(npe[p+2] == npe[p]) return false;
         else return true;
     }
@@ -485,7 +492,7 @@ bool npeSkew(vector<int> &npe, int p){
 }
 
 
-void npePerturb(vector<int> &npe, int m){
+vector<int> npePerturb(vector<int> npe, int m){
     // Swap two operands
     if(m == 0){
         int operandsArray[npe.size()];
@@ -538,22 +545,99 @@ void npePerturb(vector<int> &npe, int m){
         int adjArray[npe.size()];
         int adjCnt = 0;
         for(int i=0; i<npe.size()-1; i++){
-            if( ((npe[i] != H || npe[i] != V) && (npe[i+1] == H || npe[i+1] == V)) || ((npe[i] == H || npe[i] == V) && (npe[i+1] != H || npe[i+1] != V)) ){
+            if( ((npe[i] != H && npe[i] != V) && (npe[i+1] == H || npe[i+1] == V)) || ((npe[i] == H || npe[i] == V) && (npe[i+1] != H && npe[i+1] != V)) ){
                 adjArray[adjCnt] = i;
                 adjCnt++; 
             }
         }
         int adjIdx = rand() % adjCnt;
-        while(!npeBallot(npe, adjArray[adjIdx]) && !npeSkew(npe, adjArray[adjIdx]) ){
+        while(!npeBallot(npe, adjArray[adjIdx]) || !npeSkew(npe, adjArray[adjIdx]) ){
             adjIdx = rand() % adjCnt;
         }
+
         int empty = npe[adjArray[adjIdx]];
-        npe[adjArray[adjIdx]]= npe[adjArray[adjIdx+1]];
-        npe[adjArray[adjIdx+1]] = empty;
+        npe[adjArray[adjIdx]] = npe[adjArray[adjIdx]+1];
+        npe[adjArray[adjIdx]+1] = empty;
+#ifdef PerturbBUG
+        cout << npe[adjArray[adjIdx]] << "  " <<  npe[adjArray[adjIdx]+1] << endl;
+#endif
     }
+
+    return npe;
+
 }
 
+// p: ratio of accepting bad answer.
+// c: temperature lower bound
+// r: temperature reduce ratio
+// k: N = kn
+void simulatedAnnealing(double p, double c, double r, double k){
+    vector<int> npe, nowNpe;
+    npeInitial(npe);
+    bestNpe = npe;
+    double T = 1000;
+    int MT = 0, M = 0, uphill = 0;
+    int kN = k*hardblockNum;
+
+    int reject = 0;
+    Node* nowTreeRoot;
+    Node* treeRoot;
+    int deltaCost, nowCost, bestCost, cost;
+    treeRoot = npeBuildTree(npe);
+    cost = npeAreaCost(treeRoot);
+    bestCost = cost; 
+    do{
+#ifdef SABUG
+        cout << "now temp: " << T << endl;
+#endif
+        MT = 0;
+        uphill = 0;
+        reject = 0;
+
+        do{
+            M = rand()%3;
+            nowNpe = npePerturb(npe, M);
+
+            MT ++;
+            nowTreeRoot = npeBuildTree(nowNpe);
+            nowCost = npeAreaCost(nowTreeRoot);
+            deltaCost = nowCost - cost; 
+            if(deltaCost <= 0 || ((double) rand() / RAND_MAX) < exp(-deltaCost/T)){
+                if(deltaCost > 0) cout << "accept bad " << ((double) rand() / RAND_MAX) << " " << exp(-deltaCost/T) << endl;
+                if(deltaCost > 0) uphill ++;
+                npe = nowNpe;
+                treeRoot = nowTreeRoot;
+                cost = nowCost;
+                if(nowCost < bestCost){
+                    bestCost = nowCost;
+                    bestNpe = npe;
+                    if(bestCost == 0) return;
+                } 
+            }   
+            else reject ++;
+
+#ifdef SABUG
+            if(uphill != 0){
+                cout << "# of uphills: " << uphill << endl;
+            }
+            cout << "MT: " << MT << endl;
+            cout << "nowCost: " << nowCost << endl;            
+            cout << "Cost: " << cost << endl;
+            cout << "bestCost: " << bestCost << endl;
+            
+#endif
+
+        }while(uphill <= hardblockNum && MT <= kN);
+        T = r * T;
+    }while(double(reject/MT) <= 0.95 && T >= c);
+}
+
+
 int main(int argc, char* argv[]){
+#ifdef time    
+    clock_t c_start = clock();
+#endif    
+    srand(5);
     fstream file1, file2, file3;
 
     /* Read hardblocks file */
@@ -594,15 +678,6 @@ int main(int argc, char* argv[]){
     /* Set fixed outline */
     Wfl = Hfl = (int) floor(sqrt(totalArea*(1+deadRatio))) ;
 
-    vector<int> npe;    
-    npeInitial(npe);
-
-    showNPE(npe);
-    npePerturb(npe, 2);
-    showNPE(npe);
-
-    npeBuildTree(npe);
-    npeAreaCost(treeRoot);    
 #ifdef blockAllocateBUG
     showTree(treeRoot);
     cout << "blockAllocate" << endl;
@@ -611,10 +686,8 @@ int main(int argc, char* argv[]){
     cout << "width" << setw(8) << "height" << setw(8) << "rotate" << setw(8);
     cout << "pin x" << setw(8) << "pin y" << endl; 
 #endif
-    blockAllocate(rootChoice,treeRoot);
     
-    /* Create "draw floorplan file" named draw.floorplan */
-    drawFloorplan();
+    
 
 #ifdef READFILEDEBUG    
     cout << "totalarea " << totalArea << endl;
@@ -676,8 +749,19 @@ int main(int argc, char* argv[]){
     cout << setw(8) << "R_index" << setw(8) << "T_index";
     cout << setw(8) << "pin x" << setw(8) << "pin y" << endl; 
 #endif
-    npeWireLength();
-    
-
+    // npeWireLength();
+    simulatedAnnealing(0, 0.1, 0.9, 10);
+    //npeInitial(bestNpe);
+    Node* bestRoot = npeBuildTree(bestNpe);
+    npeAreaCost(bestRoot);
+    blockAllocate(rootChoice,bestRoot);   
+#ifdef time    
+    int cost;
+    clock_t c_end = clock();
+    cost = (double)(c_end - c_start)/CLOCKS_PER_SEC;    
+    cout << cost << endl;
+#endif    
+    /* Create "draw floorplan file" named draw.floorplan */
+    drawFloorplan();
     return 0;
 }
