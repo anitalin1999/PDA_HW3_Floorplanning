@@ -8,7 +8,8 @@
 #include <algorithm>
 #include <iomanip>
 
-#define SABUG
+// #define SA_areaBUG
+#define SA_wlBUG
 #define time
 // #define PerturbBUG
 // #define WireLengthBUG
@@ -571,7 +572,7 @@ vector<int> npePerturb(vector<int> npe, int m){
 // c: temperature lower bound
 // r: temperature reduce ratio
 // k: N = kn
-void simulatedAnnealing(double p, double c, double r, double k){
+void simulatedAnnealing_Area(double p, double c, double r, double k){
     vector<int> npe, nowNpe;
     npeInitial(npe);
     bestNpe = npe;
@@ -587,7 +588,7 @@ void simulatedAnnealing(double p, double c, double r, double k){
     cost = npeAreaCost(treeRoot);
     bestCost = cost; 
     do{
-#ifdef SABUG
+#ifdef SA_areaBUG
         cout << "now temp: " << T << endl;
 #endif
         MT = 0;
@@ -603,7 +604,6 @@ void simulatedAnnealing(double p, double c, double r, double k){
             nowCost = npeAreaCost(nowTreeRoot);
             deltaCost = nowCost - cost; 
             if(deltaCost <= 0 || ((double) rand() / RAND_MAX) < exp(-deltaCost/T)){
-                if(deltaCost > 0) cout << "accept bad " << ((double) rand() / RAND_MAX) << " " << exp(-deltaCost/T) << endl;
                 if(deltaCost > 0) uphill ++;
                 npe = nowNpe;
                 treeRoot = nowTreeRoot;
@@ -616,7 +616,7 @@ void simulatedAnnealing(double p, double c, double r, double k){
             }   
             else reject ++;
 
-#ifdef SABUG
+#ifdef SA_areaBUG
             if(uphill != 0){
                 cout << "# of uphills: " << uphill << endl;
             }
@@ -632,6 +632,75 @@ void simulatedAnnealing(double p, double c, double r, double k){
     }while(double(reject/MT) <= 0.95 && T >= c);
 }
 
+// p: ratio of accepting bad answer.
+// c: temperature lower bound
+// r: temperature reduce ratio
+// k: N = kn
+void simulatedAnnealing_WL(double p, double c, double r, double k){
+    vector<int> npe, nowNpe;
+
+    // npe = bestNpe;          // change npe to bestNpe(areaCost == 0)
+    npeInitial(npe);
+
+    double T = 1000;
+    int MT = 0, M = 0, uphill = 0;
+    int kN = k*hardblockNum;
+
+    int reject = 0;
+    Node* nowTreeRoot;
+    Node* treeRoot;
+    int deltaCost, nowCost, bestCost, cost;
+    treeRoot = npeBuildTree(npe);
+    blockAllocate(rootChoice,treeRoot);
+    cost = npeWireLength();
+    bestCost = cost; 
+    do{
+#ifdef SA_wlBUG
+        cout << "now temp: " << T << endl;
+#endif
+        MT = 0;
+        uphill = 0;
+        reject = 0;
+
+        do{
+            M = rand()%3;
+            nowNpe = npePerturb(npe, M);
+
+            MT ++;
+            nowTreeRoot = npeBuildTree(nowNpe);
+            blockAllocate(rootChoice,nowTreeRoot);
+            nowCost = npeWireLength();
+            deltaCost = nowCost - cost; 
+            if(deltaCost <= 0 || ((double) rand() / RAND_MAX) < exp(-deltaCost/T)){
+                if(deltaCost > 0) uphill ++;
+                npe = nowNpe;
+                treeRoot = nowTreeRoot;
+                cost = nowCost;
+                if(nowCost < bestCost){
+                    bestCost = nowCost;
+                    bestNpe = npe;
+                    if(bestCost == 0) return;
+                } 
+            }   
+            else reject ++;
+
+#ifdef SA_wlBUG
+            if(uphill != 0){
+                cout << "# of uphills: " << uphill << endl;
+            }
+            cout << "MT: " << MT << endl;
+            cout << "nowCost: " << nowCost << endl;            
+            cout << "Cost: " << cost << endl;
+            cout << "bestCost: " << bestCost << endl;
+            
+#endif
+
+        }while(uphill <= hardblockNum && MT <= kN);
+        T = r * T;
+        cout << "T: " << T << endl;
+        
+    }while(double(reject/MT) <= 0.95 && T >= c);
+}
 
 int main(int argc, char* argv[]){
 #ifdef time    
@@ -750,16 +819,17 @@ int main(int argc, char* argv[]){
     cout << setw(8) << "pin x" << setw(8) << "pin y" << endl; 
 #endif
     // npeWireLength();
-    simulatedAnnealing(0, 0.1, 0.9, 10);
+    // simulatedAnnealing_Area(0, 0.1, 0.9, 10);
+    simulatedAnnealing_WL(0, 0.1, 0.9, 10);
     //npeInitial(bestNpe);
-    Node* bestRoot = npeBuildTree(bestNpe);
-    npeAreaCost(bestRoot);
-    blockAllocate(rootChoice,bestRoot);   
+    // Node* bestRoot = npeBuildTree(bestNpe);
+    // npeAreaCost(bestRoot);
+    // blockAllocate(rootChoice,bestRoot);   
 #ifdef time    
     int cost;
     clock_t c_end = clock();
     cost = (double)(c_end - c_start)/CLOCKS_PER_SEC;    
-    cout << cost << endl;
+    cout << "time " << cost << endl;
 #endif    
     /* Create "draw floorplan file" named draw.floorplan */
     drawFloorplan();
