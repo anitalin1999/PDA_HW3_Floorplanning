@@ -8,7 +8,9 @@
 #include <algorithm>
 #include <iomanip>
 
-// #define SA_areaBUG
+#define SAInitBug
+#define FSA_areaBUG
+#define SA_areaBUG
 #define SA_wlBUG
 #define time
 // #define PerturbBUG
@@ -91,6 +93,12 @@ int totalArea = 0;
 int Wfl;
 int Hfl;
 int rootChoice;
+
+double uphillAreaCost = 0;
+double uphillWLCost = 0;
+double normalAreaCost = 0;
+double normalWLCost = 0;
+
 double deadRatio = 0.15;
 vector<HardBlock * > hardblocks;
 vector<Pin *> pins;
@@ -185,6 +193,15 @@ void showTree(Node* root)
         cout << endl;
 #endif                
     }   
+}
+
+void deleteTree(Node* root)
+{
+    if (!root) return;
+    deleteTree(root->lNode);
+    deleteTree(root->rNode);
+    delete root;
+    root = NULL;
 }
 
 //high to low
@@ -568,6 +585,154 @@ vector<int> npePerturb(vector<int> npe, int m){
 
 }
 
+void SAInit(){
+    vector<int> npe, nowNpe;
+    npeInitial(npe);
+    bestNpe = npe;
+    //double T = 1000;
+    int MT = 0, M = 0, uphillArea = 0, uphillWL = 0;
+    int N = hardblockNum;
+    int uphillCost = 0;
+    int reject = 0;
+    Node* nowTreeRoot;
+    Node* treeRoot;
+    int deltaAreaCost, nowAreaCost, areaCost;
+    int deltaWLCost, nowWLCost, WLCost;
+    treeRoot = npeBuildTree(npe);
+    areaCost = npeAreaCost(treeRoot);
+    blockAllocate(rootChoice,treeRoot);
+    WLCost = npeWireLength();
+    deleteTree(treeRoot);
+    // bestCost = cost; 
+    normalAreaCost += areaCost;
+    normalWLCost += WLCost;
+    do{
+            M = rand()%3;
+            nowNpe = npePerturb(npe, M);
+            MT ++;
+            nowTreeRoot = npeBuildTree(nowNpe);
+            nowAreaCost = npeAreaCost(nowTreeRoot);
+            blockAllocate(rootChoice,nowTreeRoot);
+            nowWLCost = npeWireLength();
+            deleteTree(nowTreeRoot);
+            normalAreaCost += nowAreaCost;
+            normalWLCost += nowWLCost;            
+            deltaAreaCost = nowAreaCost - areaCost;
+            deltaWLCost = nowWLCost - WLCost;
+            if(deltaAreaCost <= 0){
+                npe = nowNpe;
+                areaCost = nowAreaCost;
+            }   
+            else{
+                uphillArea ++;
+                uphillAreaCost += nowAreaCost;
+            } 
+            if(deltaWLCost <= 0){
+                npe = nowNpe;
+                WLCost = nowWLCost;
+            }   
+            else{
+                uphillWL ++;
+                uphillWLCost += nowWLCost;
+            }             
+        }while(MT < 2*N);
+
+        normalAreaCost = normalAreaCost / (2*N+1);
+        normalWLCost = normalWLCost / (2*N+1);
+        uphillAreaCost = uphillAreaCost / uphillArea;
+        uphillWLCost = uphillWLCost / uphillWL;
+#ifdef SAInitBug        
+        cout << "normalAreaCost: " << normalAreaCost << endl;
+        cout << "normalWLCost: " << normalWLCost << endl;
+        cout << "uphillAreaCost: " << uphillAreaCost << endl;
+        cout << "uphillWLCost: " << uphillWLCost << endl;
+#endif        
+}
+
+// p: ratio of accepting bad answer. (default: 0.4)
+// c: temperature reduce ratio (default: 100)
+// r: now round 
+// k: after k th round, the ratio of temperature reduction will change (default: 7)
+/*  stage 1 (r == 1):       T1 = -avg/ln(p)
+    stage 2 (2 <= r <= k):  T = T1*avg / (rc)
+    stage 3 (r > k):        T = T1*avg / r
+*/
+void fastSimulatedAnnealing_Area(double p, double c, double k){
+    vector<int> npe, nowNpe;
+    npeInitial(npe);
+    bestNpe = npe;
+    int stage = 1;
+    // stage 1 (r == 1)
+    int r = 1;
+    double T1;
+    double T = T1 = -uphillAreaCost / log(p);
+    cout << "initial temperature: " << T1 << endl;
+    int MT = 0, M = 0, uphill = 0;
+    int N = hardblockNum;
+    int uphillCost = 0;
+    int reject = 0;
+    Node* nowTreeRoot;
+    Node* treeRoot;
+    double deltaCost, nowCost, bestCost, cost;
+    double ratio;
+    double lastBestCost;
+    treeRoot = npeBuildTree(npe);
+    cost = npeAreaCost(treeRoot);
+    bestCost = cost; 
+    do{
+#ifdef FSA_areaBUG
+        cout << "now temp: " << T << endl;
+#endif
+        MT = 0;
+        uphill = 0;
+        reject = 0;
+        lastBestCost = bestCost;
+        do{
+            M = rand()%3;
+            nowNpe = npePerturb(npe, M);
+            MT ++;
+            nowTreeRoot = npeBuildTree(nowNpe);
+            nowCost = npeAreaCost(nowTreeRoot);
+            deltaCost = nowCost - cost;
+            
+            if(deltaCost <= 0 || ((double) rand() / RAND_MAX) < exp(-deltaCost/T)){
+                if(deltaCost > 0) uphill ++;
+                npe = nowNpe;
+                treeRoot = nowTreeRoot;
+                cost = nowCost;
+                if(nowCost < bestCost){
+                    bestCost = nowCost;
+                    bestNpe = npe;
+                    if(bestCost == 0) return;
+                } 
+            }   
+            else reject ++;
+        }while(uphill <= hardblockNum && MT <= k*N);
+#ifdef FSA_areaBUG  
+        cout << "STAGE " << stage << " | ";
+        cout << "r " << r << " | ";
+        cout << "FASTSA_Temp: " << T << " | ";
+        cout << "bestCost " << bestCost << " | ";
+        cout << "lastBestCost " << lastBestCost << " | ";
+        cout << "ratio " << ratio << endl;
+#endif        
+        r ++;
+        // stage 2 (2 <= r <= k)
+        if(2 <= r &&  r<= k){
+            stage = 2;
+            ratio = 1 - bestCost / lastBestCost;            
+            T = T1*ratio / (r*c);
+        } 
+        // stage 3 (r > k)
+        else {
+            ratio = 1 - bestCost /lastBestCost;            
+            T = T1*ratio / r;
+            stage = 3;
+        }
+        cout << "nowratio " << ratio << endl;
+    }while(double(reject/MT) <= 0.95 && (T >= c || stage == 2) );
+}
+
 // p: ratio of accepting bad answer.
 // c: temperature lower bound
 // r: temperature reduce ratio
@@ -586,6 +751,7 @@ void simulatedAnnealing_Area(double p, double c, double r, double k){
     int deltaCost, nowCost, bestCost, cost;
     treeRoot = npeBuildTree(npe);
     cost = npeAreaCost(treeRoot);
+    deleteTree(treeRoot);
     bestCost = cost; 
     do{
 #ifdef SA_areaBUG
@@ -602,11 +768,11 @@ void simulatedAnnealing_Area(double p, double c, double r, double k){
             MT ++;
             nowTreeRoot = npeBuildTree(nowNpe);
             nowCost = npeAreaCost(nowTreeRoot);
+            deleteTree(nowTreeRoot);
             deltaCost = nowCost - cost; 
             if(deltaCost <= 0 || ((double) rand() / RAND_MAX) < exp(-deltaCost/T)){
                 if(deltaCost > 0) uphill ++;
                 npe = nowNpe;
-                treeRoot = nowTreeRoot;
                 cost = nowCost;
                 if(nowCost < bestCost){
                     bestCost = nowCost;
@@ -639,9 +805,10 @@ void simulatedAnnealing_Area(double p, double c, double r, double k){
 void simulatedAnnealing_WL(double p, double c, double r, double k){
     vector<int> npe, nowNpe;
 
-    // npe = bestNpe;          // change npe to bestNpe(areaCost == 0)
-    npeInitial(npe);
-
+    npe = bestNpe;          // change npe to bestNpe(areaCost == 0)
+    //showNPE(npe);
+    //npeInitial(npe);
+    //showNPE(npe);
     double T = 1000;
     int MT = 0, M = 0, uphill = 0;
     int kN = k*hardblockNum;
@@ -653,6 +820,7 @@ void simulatedAnnealing_WL(double p, double c, double r, double k){
     treeRoot = npeBuildTree(npe);
     blockAllocate(rootChoice,treeRoot);
     cost = npeWireLength();
+    deleteTree(treeRoot);
     bestCost = cost; 
     do{
 #ifdef SA_wlBUG
@@ -668,8 +836,15 @@ void simulatedAnnealing_WL(double p, double c, double r, double k){
 
             MT ++;
             nowTreeRoot = npeBuildTree(nowNpe);
+            if (npeAreaCost(nowTreeRoot) != 0)
+            {
+                deleteTree(nowTreeRoot);
+                continue;
+            }
             blockAllocate(rootChoice,nowTreeRoot);
             nowCost = npeWireLength();
+            deleteTree(nowTreeRoot);
+            cout << "nowCost " << nowCost << endl;
             deltaCost = nowCost - cost; 
             if(deltaCost <= 0 || ((double) rand() / RAND_MAX) < exp(-deltaCost/T)){
                 if(deltaCost > 0) uphill ++;
@@ -679,7 +854,6 @@ void simulatedAnnealing_WL(double p, double c, double r, double k){
                 if(nowCost < bestCost){
                     bestCost = nowCost;
                     bestNpe = npe;
-                    if(bestCost == 0) return;
                 } 
             }   
             else reject ++;
@@ -748,7 +922,7 @@ int main(int argc, char* argv[]){
     Wfl = Hfl = (int) floor(sqrt(totalArea*(1+deadRatio))) ;
 
 #ifdef blockAllocateBUG
-    showTree(treeRoot);
+    // showTree(treeRoot);
     cout << "blockAllocate" << endl;
     cout << setw(8); 
     cout << "index" << setw(8) << "x" << setw(8) << "y" << setw(8);
@@ -819,8 +993,10 @@ int main(int argc, char* argv[]){
     cout << setw(8) << "pin x" << setw(8) << "pin y" << endl; 
 #endif
     // npeWireLength();
+    SAInit();
+    fastSimulatedAnnealing_Area(0.4, 100, 7);
     // simulatedAnnealing_Area(0, 0.1, 0.9, 10);
-    simulatedAnnealing_WL(0, 0.1, 0.9, 10);
+    // simulatedAnnealing_WL(0, 0.1, 0.9, 10);
     //npeInitial(bestNpe);
     // Node* bestRoot = npeBuildTree(bestNpe);
     // npeAreaCost(bestRoot);

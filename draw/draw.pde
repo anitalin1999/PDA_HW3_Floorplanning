@@ -43,8 +43,8 @@ void draw() {
     
   }   
   
-  float outlineW = 633; // outline size
-  float outlineH = 633;
+  float outlineW = 454; // outline size
+  float outlineH = 454;
   line(0,0,outlineW,0);
   line(outlineW,0,outlineW,outlineH);
   line(outlineW,outlineH,outlineW,0);
