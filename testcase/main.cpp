@@ -675,9 +675,11 @@ void fastSimulatedAnnealing_Area(double p, double c, double k){
     Node* treeRoot;
     double deltaCost, nowCost, bestCost, cost;
     double ratio;
-    double lastBestCost;
+    int deltaMax = INT_MIN, deltaMin = INT_MAX ,deltaCount;
+    double averageDelta;
     treeRoot = npeBuildTree(npe);
     cost = npeAreaCost(treeRoot);
+    deleteTree(treeRoot);
     bestCost = cost; 
     do{
 #ifdef FSA_areaBUG
@@ -686,46 +688,62 @@ void fastSimulatedAnnealing_Area(double p, double c, double k){
         MT = 0;
         uphill = 0;
         reject = 0;
-        lastBestCost = bestCost;
+        averageDelta = 0;        
+        deltaCount = 0;
         do{
             M = rand()%3;
             nowNpe = npePerturb(npe, M);
             MT ++;
             nowTreeRoot = npeBuildTree(nowNpe);
             nowCost = npeAreaCost(nowTreeRoot);
+            deleteTree(nowTreeRoot);
             deltaCost = nowCost - cost;
-            
             if(deltaCost <= 0 || ((double) rand() / RAND_MAX) < exp(-deltaCost/T)){
                 if(deltaCost > 0) uphill ++;
+                
+                if (deltaCost > deltaMax)
+                {
+                    deltaMax = deltaCost;
+                }
+                if (deltaCost < deltaMin)
+                {
+                    deltaMin = deltaCost;
+                }
+                averageDelta += deltaCost;
+                deltaCount++;
+
                 npe = nowNpe;
                 treeRoot = nowTreeRoot;
                 cost = nowCost;
                 if(nowCost < bestCost){
                     bestCost = nowCost;
                     bestNpe = npe;
-                    if(bestCost == 0) return;
+                    if(bestCost == 0){
+                        return;
+                    }
                 } 
             }   
             else reject ++;
-        }while(uphill <= hardblockNum && MT <= k*N);
+        }while(uphill <= hardblockNum && MT <= 2*N);
 #ifdef FSA_areaBUG  
         cout << "STAGE " << stage << " | ";
         cout << "r " << r << " | ";
         cout << "FASTSA_Temp: " << T << " | ";
         cout << "bestCost " << bestCost << " | ";
-        cout << "lastBestCost " << lastBestCost << " | ";
         cout << "ratio " << ratio << endl;
 #endif        
         r ++;
         // stage 2 (2 <= r <= k)
         if(2 <= r &&  r<= k){
             stage = 2;
-            ratio = 1 - bestCost / lastBestCost;            
+            averageDelta = averageDelta/deltaCount;
+            ratio = (averageDelta - deltaMin) / (deltaMax - deltaMin);
             T = T1*ratio / (r*c);
         } 
         // stage 3 (r > k)
         else {
-            ratio = 1 - bestCost /lastBestCost;            
+            averageDelta = averageDelta/deltaCount;
+            ratio = (averageDelta - deltaMin) / (deltaMax - deltaMin);
             T = T1*ratio / r;
             stage = 3;
         }
@@ -994,13 +1012,16 @@ int main(int argc, char* argv[]){
 #endif
     // npeWireLength();
     SAInit();
-    fastSimulatedAnnealing_Area(0.4, 100, 7);
-    // simulatedAnnealing_Area(0, 0.1, 0.9, 10);
+    clock_t start = clock();    
+    // fastSimulatedAnnealing_Area(0.1, 100, 7);
+    simulatedAnnealing_Area(0, 0.1, 0.9, 10);
+    clock_t end = clock();    
+    cout << "Areatime " << (double)(end - start)/CLOCKS_PER_SEC << endl;
     // simulatedAnnealing_WL(0, 0.1, 0.9, 10);
     //npeInitial(bestNpe);
-    // Node* bestRoot = npeBuildTree(bestNpe);
+    Node* bestRoot = npeBuildTree(bestNpe);
     // npeAreaCost(bestRoot);
-    // blockAllocate(rootChoice,bestRoot);   
+    blockAllocate(rootChoice,bestRoot);   
 #ifdef time    
     int cost;
     clock_t c_end = clock();
